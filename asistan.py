@@ -27,7 +27,7 @@ class HayatiBot(commands.Bot):
         if not sabah_gorevi.is_running():
             sabah_gorevi.start()
     async def on_ready(self):
-        print(f"Hayati aktif!")
+        print("Hayati aktif!")
 
 bot = HayatiBot()
 
@@ -36,21 +36,27 @@ async def sabah_gorevi():
     simdi = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh"))
     if simdi.hour == 9 and simdi.minute == 0:
         kanal = discord.utils.get(bot.get_all_channels(), name=HEDEF_KANAL_ADI)
-        if kanal: await kanal.send(await ai_rapor_hazirla())
+        if kanal:
+            msg = await ai_rapor_hazirla()
+            await kanal.send(msg)
 
 async def ai_rapor_hazirla():
     try:
         url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={WEATHER_API_KEY}&units=metric&lang=tr"
         w = requests.get(url).json()
-        hava = f"{w[\"main\"][\"temp\"]}C, {w[\"weather\"][0][\"description\"]}"
-        bugun = datetime.datetime.now(pytz.timezone(\"Asia/Ho_Chi_Minh\")).date()
+        temp = w["main"]["temp"]
+        desc = w["weather"][0]["description"]
+        hava = f"{temp}C, {desc}"
+        bugun = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh")).date()
         tarih_listesi = ""
         for b, t in KRITIK_TARIHLER.items():
-            kalan = (datetime.datetime.strptime(t, \"%Y-%m-%d\").date() - bugun).days
+            kalan = (datetime.datetime.strptime(t, "%Y-%m-%d").date() - bugun).days
             tarih_listesi += f"- {b}: {kalan} gun kaldi.\n"
         p = f"Sen Mertin asistani Hayatisin. Hava: {hava}. Takvim: {tarih_listesi}. Mert abi diyerek samimi rapor yaz."
-        return ai_model.generate_content(p).text
-    except Exception as e: return f"Hata: {e}"
+        res = ai_model.generate_content(p)
+        return res.text
+    except Exception as e:
+        return f"Hata: {e}"
 
 @bot.tree.command(name="rapor")
 async def rapor(interaction: discord.Interaction):
@@ -60,11 +66,12 @@ async def rapor(interaction: discord.Interaction):
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
-    if bot.user.mentioned_in(message) or \"hayati\" in message.content.lower():
+    if bot.user.mentioned_in(message) or "hayati" in message.content.lower():
         async with message.channel.typing():
             try:
                 res = ai_model.generate_content(f"Sen Hayatisin. Mert: {message.content}").text
                 await message.reply(res)
-            except Exception as e: await message.reply(f"Hata: {e}")
+            except Exception as e:
+                await message.reply(f"Hata: {e}")
 
 bot.run(TOKEN)
