@@ -1,10 +1,10 @@
-import discord
+import discord, os  # <--- Buraya os ekledik
 from discord.ext import tasks, commands
 import datetime, random, requests, pytz
 
 # --- AYARLAR ---
-TOKEN = 'MTQ2NzUwNzQ4Mjg2NzAwNzU3OQ.GqiE-j.SvSEOuviFMdhIbo2IGLwKBTMBSHAxb7v-wnxVs'
-WEATHER_API_KEY = '2edde4176f3ba875b30804a7f5e4c146'
+TOKEN = os.getenv('DISCORD_TOKEN') # <--- İçini boşalttık, Railway'den alacak
+WEATHER_API_KEY = os.getenv('WEATHER_KEY') # <--- İçini boşalttık
 CITY = 'Nha Trang'
 HEDEF_KANAL_ADI = 'genel' 
 
