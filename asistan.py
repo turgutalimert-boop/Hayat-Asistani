@@ -25,7 +25,7 @@ class HayatiBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        self.sabah_raporu_dongusu.start()
+        self.sabah_raporu_gorevi.start()
 
     async def on_ready(self):
         print(f'✅ Hayati aktif!')
@@ -39,9 +39,9 @@ async def ai_rapor_olustur():
         hava = f"{w['main']['temp']}°C, {w['weather'][0]['description']}"
         bugun = datetime.datetime.now(pytz.timezone('Asia/Ho_Chi_Minh')).date()
         tarih_listesi = ""
-        for baslik, t_str in KRITIK_TARIHLER.items():
-            kalan = (datetime.datetime.strptime(t_str, "%Y-%m-%d").date() - bugun).days
-            tarih_listesi += f"- {baslik}: {kalan} gün kaldı.\n"
+        for b, t in KRITIK_TARIHLER.items():
+            kalan = (datetime.datetime.strptime(t, "%Y-%m-%d").date() - bugun).days
+            tarih_listesi += f"- {b}: {kalan} gün kaldı.\n"
         prompt = f"Sen Mert'in asistanı Hayati'sin. Mert'e samimi bir sabah raporu yaz. Hava: {hava}. Önemli tarihler: {tarih_listesi}. Mert abi diye hitap et."
         response = ai_model.generate_content(prompt)
         return response.text
@@ -53,6 +53,22 @@ async def rapor(interaction: discord.Interaction):
     await interaction.response.defer()
     mesaj = await ai_rapor_olustur()
     await interaction.followup.send(mesaj)
-git add .
-git commit -m "Hayati guncellendi"
-git push
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user: return
+    if bot.user.mentioned_in(message) or "hayati" in message.content.lower():
+        async with message.channel.typing():
+            prompt = f"Sen Mert'in asistanı Hayati'sin. Mert sana şunu dedi: '{message.content}'. Kısa ve samimi cevap ver."
+            response = ai_model.generate_content(prompt)
+            await message.reply(response.text)
+
+@tasks.loop(minutes=1)
+async def sabah_raporu_gorevi():
+    simdi = datetime.datetime.now(pytz.timezone('Asia/Ho_Chi_Minh'))
+    if simdi.hour == 9 and simdi.minute == 0:
+        kanal = discord.utils.get(bot.get_all_channels(), name=HEDEF_KANAL_ADI)
+        if kanal:
+            await kanal.send(await ai_rapor_olustur())
+
+bot.run(TOKEN)
