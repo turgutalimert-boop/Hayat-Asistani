@@ -1,77 +1,50 @@
-import discord, os, datetime, requests, pytz
-from discord.ext import tasks, commands
+import discord, os, datetime, pytz
+from discord.ext import commands
 import google.generativeai as genai
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-WEATHER_API_KEY = os.getenv("WEATHER_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-CITY = "Nha Trang"
-HEDEF_KANAL_ADI = "genel"
+
+# Senin verdigin listedeki en guncel model: Gemini 3 Flash
+genai.configure(api_key=GEMINI_API_KEY)
+ai_model = genai.GenerativeModel("gemini-3-flash")
 
 KRITIK_TARIHLER = {
     "Vietnam Vizesi": "2026-05-15",
-    "Kiz Arkadasimin Dogum Gunu": "2026-08-20",
-    "Pasaport Yenileme": "2027-10-10"
+    "Kiz Arkadasimin Dogum Gunu": "2026-08-20"
 }
 
-genai.configure(api_key=GEMINI_API_KEY, transport="grpc")
-ai_model = genai.GenerativeModel("gemini-1.5-flash")
-
-class HayatiBot(commands.Bot):
-    def __init__(self):
-        intents = discord.Intents.default()
-        intents.message_content = True
-        super().__init__(command_prefix="!", intents=intents)
-    async def setup_hook(self):
-        await self.tree.sync()
-        if not sabah_gorevi.is_running():
-            sabah_gorevi.start()
-    async def on_ready(self):
-        print("Hayati aktif!")
-
-bot = HayatiBot()
-
-@tasks.loop(minutes=1)
-async def sabah_gorevi():
-    simdi = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh"))
-    if simdi.hour == 9 and simdi.minute == 0:
-        kanal = discord.utils.get(bot.get_all_channels(), name=HEDEF_KANAL_ADI)
-        if kanal:
-            msg = await ai_rapor_hazirla()
-            await kanal.send(msg)
-
-async def ai_rapor_hazirla():
-    try:
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={WEATHER_API_KEY}&units=metric&lang=tr"
-        w = requests.get(url).json()
-        temp = w["main"]["temp"]
-        desc = w["weather"][0]["description"]
-        hava = f"{temp}C, {desc}"
-        bugun = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh")).date()
-        tarih_listesi = ""
-        for b, t in KRITIK_TARIHLER.items():
-            kalan = (datetime.datetime.strptime(t, "%Y-%m-%d").date() - bugun).days
-            tarih_listesi += f"- {b}: {kalan} gun kaldi.\n"
-        p = f"Sen Mertin asistani Hayatisin. Hava: {hava}. Takvim: {tarih_listesi}. Mert abi diyerek samimi rapor yaz."
-        res = ai_model.generate_content(p)
-        return res.text
-    except Exception as e:
-        return f"Hata: {e}"
-
-@bot.tree.command(name="rapor")
-async def rapor(interaction: discord.Interaction):
-    await interaction.response.defer()
-    await interaction.followup.send(await ai_rapor_hazirla())
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
-async def on_message(message):
-    if message.author == bot.user: return
-    if bot.user.mentioned_in(message) or "hayati" in message.content.lower():
-        async with message.channel.typing():
-            try:
-                res = ai_model.generate_content(f"Sen Hayatisin. Mert: {message.content}").text
-                await message.reply(res)
-            except Exception as e:
-                await message.reply(f"Hata: {e}")
+async def on_ready():
+    print(f"Hayati 2026 model (Gemini 3 Flash) aktif!")
+    await bot.tree.sync()
+
+@bot.tree.command(name="hayati", description="Hayatiye bir sey sor")
+async def hayati(interaction: discord.Interaction, soru: str):
+    await interaction.response.defer()
+    try:
+        bugun = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d")
+        # Botun 1 Subat 2026 farkindaligini sagliyoruz
+        context = f"Bugun {bugun}. Sen Mertin sadik asistani Hayatisin. Cevaplarini kisa, samimi ve Mert abi diyerek ver. Soru: {soru}"
+        response = ai_model.generate_content(context)
+        await interaction.followup.send(response.text)
+    except Exception as e:
+        await interaction.followup.send(f"Hata: {e}")
+
+@bot.tree.command(name="sayac", description="Kalan gunler")
+async def sayac(interaction: discord.Interaction):
+    bugun = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh")).date()
+    mesaj = "📅 **Mert Abi, 1 Şubat 2026 itibariyle durum:**
+"
+    for isim, tarih_str in KRITIK_TARIHLER.items():
+        tarih = datetime.datetime.strptime(tarih_str, "%Y-%m-%d").date()
+        kalan = (tarih - bugun).days
+        mesaj += f"- {isim}: {kalan} gun kaldi.
+"
+    await interaction.response.send_message(mesaj)
 
 bot.run(TOKEN)
