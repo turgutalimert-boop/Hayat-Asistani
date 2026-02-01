@@ -1,14 +1,13 @@
-import discord, os, datetime, pytz
+import discord, os, datetime, pytz, asyncio
 from discord.ext import commands
 import google.generativeai as genai
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Listendeki model: Gemini 2.5 Flash
+# Gemini 2.5 Flash Lite Ayarı
 genai.configure(api_key=GEMINI_API_KEY)
-# API çağrısı için tam format:
-ai_model = genai.GenerativeModel("models/gemini-2.5-flash")
+ai_model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 KRITIK_TARIHLER = {
     "Vietnam Vizesi": "2026-05-15",
@@ -21,20 +20,23 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print("Hayati 2026 (Gemini 2.5 Flash) Gorev Basinda!")
+    print("Hayati 2026 (Gemini 2.5 Flash Lite) Gorev Basinda!")
     await bot.tree.sync()
 
 @bot.tree.command(name="hayati", description="Hayatiye bir sey sor")
 async def hayati(interaction: discord.Interaction, soru: str):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
     try:
         bugun = datetime.datetime.now(pytz.timezone("Asia/Ho_Chi_Minh")).strftime("%Y-%m-%d")
         context = f"Bugun {bugun}. Sen Mert abinin sadik asistani Hayatisin. Mert abi diyerek samimi cevap ver. Soru: {soru}"
-        response = ai_model.generate_content(context)
+        
+        # Yanıtı asenkron alarak Discord bağlantısını canlı tutuyoruz
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(None, lambda: ai_model.generate_content(context))
+        
         await interaction.followup.send(response.text)
     except Exception as e:
-        # Eger hala 404 verirse model ismini alternatif formatta deniyoruz
-        await interaction.followup.send(f"Hata: {e}")
+        await interaction.followup.send(f"Hata kanka: {e}")
 
 @bot.tree.command(name="sayac", description="Kalan gunler")
 async def sayac(interaction: discord.Interaction):
