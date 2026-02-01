@@ -5,9 +5,9 @@ import google.generativeai as genai
 TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Gemini 3 Flash Ayari
+# 404 Hatasini cozmek icin en stabil yeni nesil ismi kullaniyoruz
 genai.configure(api_key=GEMINI_API_KEY)
-ai_model = genai.GenerativeModel("gemini-3-flash")
+ai_model = genai.GenerativeModel("gemini-1.5-flash") # Veya listedeki gemini-2.0-flash
 
 KRITIK_TARIHLER = {
     "Vietnam Vizesi": "2026-05-15",
@@ -20,7 +20,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print("Hayati 2026 (Gemini 3 Flash) aktif!")
+    print("Hayati 2026 Aktif!")
     await bot.tree.sync()
 
 @bot.tree.command(name="hayati", description="Hayatiye bir sey sor")
